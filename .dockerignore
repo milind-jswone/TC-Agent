@@ -1,0 +1,13 @@
+.git
+.gitignore
+__pycache__
+**/__pycache__
+*.pyc
+.env
+*.env
+SupplierTCAgent/Output/*
+!SupplierTCAgent/Output/README.md
+SupplierTCAgent/Master/*.xlsx
+SupplierTCAgent/Samples/*
+!SupplierTCAgent/Samples/README.md
+*.log.*

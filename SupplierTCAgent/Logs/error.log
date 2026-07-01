@@ -1,0 +1,2 @@
+
+2026-07-01 | ocr-env | Tesseract install attempted via winget, but tesseract.exe was not found afterward. OCR code is ready, but host still needs verified Tesseract executable.

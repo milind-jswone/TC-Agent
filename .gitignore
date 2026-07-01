@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Environment
+.env
+*.env
+!SupplierTCAgent/Tools/.env.example
+
+# Local/generated TC files
+SupplierTCAgent/Output/*
+!SupplierTCAgent/Output/README.md
+SupplierTCAgent/Master/*.xlsx
+SupplierTCAgent/Samples/*
+!SupplierTCAgent/Samples/README.md
+
+# Office temp files
+~$*.xlsx
+~$*.xlsm
+
+# Logs keep the scaffold files, ignore future rotated/local logs
+*.log.*

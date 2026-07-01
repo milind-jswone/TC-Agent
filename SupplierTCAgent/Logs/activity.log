@@ -1,0 +1,3 @@
+2026-07-01 | scaffold | Created Supplier TC Agent structure.
+2026-07-01 | local-test | Generated Output/TC_Output_7109367113.xlsx from sample PDF with 5 line items and no warnings.
+2026-07-01 | ocr | Added OCR-ready support for scanned PDFs and image inputs.

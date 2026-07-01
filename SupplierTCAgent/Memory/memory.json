@@ -1,0 +1,48 @@
+{
+  "agent": "Supplier TC Agent",
+  "created_on": "2026-07-01",
+  "lessons": [
+    {
+      "date": "2026-07-01",
+      "note": "The first sample supplier TC PDF is text-extractable and does not require OCR."
+    },
+    {
+      "date": "2026-07-01",
+      "note": "The output template contains merged cells; writes must resolve to the top-left cell of each merged range."
+    },
+    {
+      "date": "2026-07-01",
+      "note": "OCR support requires both Python packages and the separate Tesseract OCR application on the agent host."
+    }
+  ],
+  "supplier_format_notes": [
+    {
+      "date": "2026-07-01",
+      "note": "Sample TC has chemical properties on page 1 and mechanical properties on page 2. Coil rows can be joined by heat number and coil number."
+    },
+    {
+      "date": "2026-07-01",
+      "note": "Image/scanned inputs are handled with OCR first, then the same header and line-item parser is applied to OCR text."
+    }
+  ],
+  "excel_mapping_notes": [
+    {
+      "date": "2026-07-01",
+      "note": "Rows 15-23 hold coil line items, so v1 supports up to 9 extracted line items per TC output file."
+    }
+  ],
+  "powerautomate_notes": [
+    {
+      "date": "2026-07-01",
+      "note": "Power Automate should trigger from Teams channel Supplier TC Agent and call /tc/process-base64 or /tc/process on the agent endpoint."
+    }
+  ],
+  "known_errors": [
+    {
+      "date": "2026-07-01",
+      "context": "OCR environment setup",
+      "error": "winget reported successful Tesseract install, but tesseract.exe was not found on PATH, Program Files, user AppData, or uninstall registry checks afterward.",
+      "next_action": "Install or verify Tesseract OCR on the final agent host and set TESSERACT_CMD to the exact tesseract.exe path."
+    }
+  ]
+}
