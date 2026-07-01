@@ -95,6 +95,7 @@ LLM_API_BASE_URL=<LLM console base URL>
 LLM_API_KEY=<API key>
 LLM_MODEL=gemini-2.5-flash
 LLM_USER_ID=<optional user id>
+LLM_MAX_TOKENS=32768
 ```
 
 When configured, the agent sends the uploaded TC as a base64 attachment to:

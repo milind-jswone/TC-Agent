@@ -48,6 +48,7 @@ LLM_API_BASE_URL=<LLM console base URL>
 LLM_API_KEY=<API key>
 LLM_MODEL=gemini-2.5-flash
 LLM_USER_ID=<optional user id>
+LLM_MAX_TOKENS=32768
 ```
 
 If the LLM call fails, the service falls back to local PDF/OCR extraction.
