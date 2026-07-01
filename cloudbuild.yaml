@@ -1,9 +1,46 @@
+substitutions:
+  _REGION: asia-south1
+  _SERVICE: supplier-tc-agent
+  _AR_REPO: contract-agents
+
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
       - -t
-      - asia-south1-docker.pkg.dev/$PROJECT_ID/tc-agent/supplier-tc-agent:$COMMIT_SHA
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$COMMIT_SHA
       - .
+
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$COMMIT_SHA
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$COMMIT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --memory
+      - 1Gi
+      - --cpu
+      - "1"
+      - --timeout
+      - "300"
+      - --min-instances
+      - "0"
+      - --max-instances
+      - "3"
+      - --port
+      - "8080"
+
 images:
-  - asia-south1-docker.pkg.dev/$PROJECT_ID/tc-agent/supplier-tc-agent:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$COMMIT_SHA
