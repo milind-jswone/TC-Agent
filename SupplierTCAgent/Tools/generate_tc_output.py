@@ -27,8 +27,8 @@ def _safe_name(value: str) -> str:
     return safe.strip("_") or "supplier_tc"
 
 
-def _load_record(input_path: str | Path) -> TCRecord:
-    return parse_supplier_tc(input_path)
+def _load_record(input_path: str | Path, tc_format: str = "auto") -> TCRecord:
+    return parse_supplier_tc(input_path, tc_format=tc_format)
 
 
 def _set(ws: Any, cell: str, value: Any) -> None:
@@ -222,6 +222,7 @@ def process_supplier_tc(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     master_path: str | Path = DEFAULT_MASTER,
     include_file_content: bool = False,
+    tc_format: str = "auto",
 ) -> dict[str, Any]:
     input_path = Path(input_path)
     template_path = Path(template_path)
@@ -229,7 +230,7 @@ def process_supplier_tc(
     master_path = Path(master_path)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    record = _load_record(input_path)
+    record = _load_record(input_path, tc_format=tc_format)
     output_name = f"TC_Output_{_safe_name(record.test_certificate_no or input_path.stem)}.xlsx"
     output_path = output_dir / output_name
     json_path = output_dir / f"{output_path.stem}.json"
@@ -246,6 +247,7 @@ def process_supplier_tc(
         "master_file": str(master_path),
         "json_file": str(json_path),
         "line_items": len(record.line_items),
+        "tc_format": tc_format,
         "extracted_data": record.to_dict(),
         "warnings": record.warnings,
     }
@@ -262,9 +264,10 @@ def main() -> None:
     parser.add_argument("--template", default=str(DEFAULT_TEMPLATE))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--master", default=str(DEFAULT_MASTER))
+    parser.add_argument("--tc-format", default="auto")
     args = parser.parse_args()
 
-    result = process_supplier_tc(args.input_path, args.template, args.output_dir, args.master)
+    result = process_supplier_tc(args.input_path, args.template, args.output_dir, args.master, tc_format=args.tc_format)
     print(json.dumps(result, indent=2))
 
 

@@ -26,7 +26,8 @@ For `/tc/process-base64`:
 ```json
 {
   "file_name": "Supplier TC format.pdf",
-  "file_content_base64": "<file content>"
+  "file_content_base64": "<file content>",
+  "tc_format": "auto"
 }
 ```
 

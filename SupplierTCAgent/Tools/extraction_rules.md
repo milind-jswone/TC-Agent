@@ -49,6 +49,14 @@
 - If Tesseract is not on PATH, set `TESSERACT_CMD` in the environment to the installed `tesseract.exe` path.
 - OCR text is parsed using line patterns, so low-quality scans may need manual review or a stronger supplier-specific rule.
 
+## LLM Extraction Rules
+
+- If `LLM_API_BASE_URL` and `LLM_API_KEY` are configured, use the LLM playground `/api/invoke` endpoint first.
+- Send the uploaded TC file as a base64 attachment.
+- Ask for strict JSON matching the agent schema.
+- Include selected `tc_format` from Power Automate in the prompt.
+- If the LLM extraction fails or returns no line items, fall back to local PDF/OCR parsing.
+
 ## Current Assumptions
 
 - `Batch No.` in the output template maps to supplier `Cast / Heat No.`

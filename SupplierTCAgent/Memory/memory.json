@@ -13,6 +13,10 @@
     {
       "date": "2026-07-01",
       "note": "OCR support requires both Python packages and the separate Tesseract OCR application on the agent host."
+    },
+    {
+      "date": "2026-07-01",
+      "note": "LLM Playground extraction is optional and controlled by LLM_API_BASE_URL and LLM_API_KEY; parser/OCR fallback remains active if the API fails."
     }
   ],
   "supplier_format_notes": [

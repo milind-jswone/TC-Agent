@@ -8,6 +8,7 @@ from typing import Any
 
 import pdfplumber
 
+from llm_client import invoke_document_extraction, is_llm_configured
 from ocr_utils import is_image_file, ocr_image_file, ocr_pdf_file
 
 
@@ -85,6 +86,10 @@ def _to_int(value: Any) -> int | None:
     text = _clean(value)
     if not text:
         return None
+
+
+def _to_text(value: Any) -> str:
+    return _clean(value)
     try:
         return int(float(text))
     except ValueError:
@@ -101,6 +106,69 @@ def _parse_size(size: str) -> tuple[float | None, float | None, float | None]:
     if len(parts) < 3:
         return None, None, None
     return float(parts[0]), float(parts[1]), float(parts[2])
+
+
+def _record_from_llm_payload(path: Path, payload: dict[str, Any]) -> TCRecord:
+    record = TCRecord(source_file=path.name)
+    record.test_certificate_no = _to_text(payload.get("test_certificate_no"))
+    record.date = _to_text(payload.get("date"))
+    record.product = _to_text(payload.get("product"))
+    record.so_no = _to_text(payload.get("so_no"))
+    record.so_date = _to_text(payload.get("so_date"))
+    record.customer_name_address = _to_text(payload.get("customer_name_address"))
+    record.specification = _to_text(payload.get("specification"))
+    record.grade = _to_text(payload.get("grade")) or (record.specification.split()[-1] if record.specification else "")
+    record.billing_doc_no = _to_text(payload.get("billing_doc_no"))
+    record.invoice_no = _to_text(payload.get("invoice_no"))
+    record.vehicle_no = _to_text(payload.get("vehicle_no"))
+    record.total_weight_mt = _to_float(payload.get("total_weight_mt"))
+    record.total_coils_packets = _to_int(payload.get("total_coils_packets"))
+    warnings = payload.get("warnings")
+    if isinstance(warnings, list):
+        record.warnings.extend(_to_text(item) for item in warnings if _to_text(item))
+
+    for raw_item in payload.get("line_items") or []:
+        if not isinstance(raw_item, dict):
+            continue
+        nominal_size = _to_text(raw_item.get("nominal_size"))
+        thickness, width, length = _parse_size(nominal_size)
+        item = TCLineItem(
+            batch_no=_to_text(raw_item.get("batch_no")),
+            coil_no=_to_text(raw_item.get("coil_no")),
+            nominal_size=nominal_size,
+            pcs=_to_text(raw_item.get("pcs")),
+            net_weight_mt=_to_float(raw_item.get("net_weight_mt")) or 0.0,
+            thickness_mm=_to_float(raw_item.get("thickness_mm")) or thickness,
+            width_mm=_to_float(raw_item.get("width_mm")) or width,
+            length_mm=_to_float(raw_item.get("length_mm")) or length,
+            c=_to_float(raw_item.get("c")),
+            s=_to_float(raw_item.get("s")),
+            p=_to_float(raw_item.get("p")),
+            si=_to_float(raw_item.get("si")),
+            al=_to_float(raw_item.get("al")),
+            n=_to_float(raw_item.get("n")),
+            nb=_to_float(raw_item.get("nb")),
+            v=_to_float(raw_item.get("v")),
+            ti=_to_float(raw_item.get("ti")),
+            nb_v_ti=_to_float(raw_item.get("nb_v_ti")),
+            tensile_direction=_to_text(raw_item.get("tensile_direction")),
+            ys=_to_float(raw_item.get("ys")),
+            uts=_to_float(raw_item.get("uts")),
+            gl=_to_text(raw_item.get("gl")),
+            elongation=_to_float(raw_item.get("elongation")),
+            ys_uts_ratio=_to_float(raw_item.get("ys_uts_ratio")),
+            bend_direction=_to_text(raw_item.get("bend_direction")),
+            bend_radius=_to_text(raw_item.get("bend_radius")),
+            bend_result=_to_text(raw_item.get("bend_result")),
+        )
+        if item.nb_v_ti is None:
+            parts = [value for value in (item.nb, item.v, item.ti) if value is not None]
+            item.nb_v_ti = round(sum(parts), 6) if parts else None
+        if item.batch_no or item.coil_no:
+            record.line_items.append(item)
+
+    record.warnings.append("Extraction source: LLM playground API.")
+    return record
 
 
 def _extract_customer(text: str) -> str:
@@ -227,10 +295,24 @@ def _parse_line_items_from_text(text: str) -> list[TCLineItem]:
     return list(items_by_key.values())
 
 
-def parse_supplier_tc(input_path: str | Path) -> TCRecord:
+def parse_supplier_tc(input_path: str | Path, tc_format: str = "auto", prefer_llm: bool = True) -> TCRecord:
     path = Path(input_path)
+    if prefer_llm and is_llm_configured():
+        try:
+            record = _record_from_llm_payload(path, invoke_document_extraction(path, tc_format=tc_format))
+            if record.line_items:
+                return record
+            record.warnings.append("LLM extraction returned no line items; falling back to parser/OCR.")
+            fallback_record = record
+        except Exception as exc:
+            fallback_record = TCRecord(source_file=path.name)
+            fallback_record.warnings.append(f"LLM extraction failed; falling back to parser/OCR: {exc}")
+    else:
+        fallback_record = TCRecord(source_file=path.name)
+
     text, tables, source_warnings = _extract_source(path)
     record = TCRecord(source_file=path.name)
+    record.warnings.extend(fallback_record.warnings)
     record.warnings.extend(source_warnings)
 
     record.test_certificate_no = _match(text, r"Test Certificate No\.\s*:\s*([A-Za-z0-9/-]+)")
@@ -308,6 +390,8 @@ def parse_supplier_tc(input_path: str | Path) -> TCRecord:
 
     if not record.line_items:
         record.warnings.append("No coil line items were extracted.")
+    if record.total_coils_packets is None and record.line_items:
+        record.total_coils_packets = len(record.line_items)
     if record.total_coils_packets is not None and record.total_coils_packets != len(record.line_items):
         record.warnings.append(
             f"Extracted {len(record.line_items)} line items but source total says {record.total_coils_packets}."

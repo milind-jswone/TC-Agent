@@ -19,11 +19,12 @@ SUPPORTED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp"
 class TCProcessRequest(BaseModel):
     file_name: str
     file_content_base64: str
+    tc_format: str = "auto"
 
 
-def _process_pdf(path: Path) -> dict[str, Any]:
+def _process_pdf(path: Path, tc_format: str = "auto") -> dict[str, Any]:
     try:
-        return process_supplier_tc(path, include_file_content=True)
+        return process_supplier_tc(path, include_file_content=True, tc_format=tc_format)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -54,5 +55,5 @@ def process_tc_base64(request: TCProcessRequest) -> JSONResponse:
             pdf_path.write_bytes(base64.b64decode(request.file_content_base64))
         except Exception as exc:
             raise HTTPException(status_code=400, detail="Invalid base64 PDF content.") from exc
-        result = _process_pdf(pdf_path)
+        result = _process_pdf(pdf_path, tc_format=request.tc_format)
     return JSONResponse(result)

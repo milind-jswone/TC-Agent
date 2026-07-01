@@ -31,6 +31,27 @@ Main endpoints:
 
 Webhook responses include `output_file_name`, `output_file_base64`, and `extracted_data` so Power Automate can save the generated Excel file and append rows to a master Excel table.
 
+Optional request field:
+
+```json
+{
+  "tc_format": "auto"
+}
+```
+
+## LLM Playground Integration
+
+Set these Cloud Run environment variables to enable LLM-first document extraction:
+
+```text
+LLM_API_BASE_URL=<LLM console base URL>
+LLM_API_KEY=<API key>
+LLM_MODEL=gemini-2.5-flash
+LLM_USER_ID=<optional user id>
+```
+
+If the LLM call fails, the service falls back to local PDF/OCR extraction.
+
 ## Cloud Run
 
 This repo includes a `Dockerfile` for a new independent Cloud Run service. Recommended service name:

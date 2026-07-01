@@ -26,7 +26,7 @@ GET http://localhost:8000/health
 Power Automate can call either endpoint:
 
 - `POST /tc/process` with multipart field `file`
-- `POST /tc/process-base64` with JSON body containing `file_name` and `file_content_base64`
+- `POST /tc/process-base64` with JSON body containing `file_name`, `file_content_base64`, and optional `tc_format`
 
 For a cloud flow, the endpoint must be reachable by Power Automate. That means the agent needs to run on a hosted service, an internal gateway, or a tunnel during testing.
 
@@ -48,6 +48,7 @@ OCR requirements for scanned PDFs and image files:
   "master_file": "",
   "json_file": "",
   "line_items": 5,
+  "tc_format": "auto",
   "extracted_data": {},
   "warnings": []
 }
@@ -82,6 +83,27 @@ Recommended behavior:
 5. Save `output_file_base64` as `output_file_name` to the target Teams/SharePoint location.
 6. Append `extracted_data.line_items` to the production master Excel table.
 7. Reply in the Teams thread with success/failure and output file link.
+
+## LLM Playground Integration
+
+The agent can optionally use the JSW One LLM Console invoke API before falling back to the local PDF/OCR parser.
+
+Configure these Cloud Run environment variables:
+
+```text
+LLM_API_BASE_URL=<LLM console base URL>
+LLM_API_KEY=<API key>
+LLM_MODEL=gemini-2.5-flash
+LLM_USER_ID=<optional user id>
+```
+
+When configured, the agent sends the uploaded TC as a base64 attachment to:
+
+```text
+POST /api/invoke
+```
+
+If the LLM call fails or returns no line items, the agent falls back to the deterministic parser/OCR path and returns a warning.
 
 ## Items Needed From User
 

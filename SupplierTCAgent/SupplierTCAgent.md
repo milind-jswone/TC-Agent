@@ -124,6 +124,7 @@ Pending decisions:
 - Generated a local test output file for TC `7109367113`.
 - Created a local master Excel workbook with one row per extracted coil.
 - Added OCR-ready support for scanned PDFs and image uploads.
+- Added optional JSW One LLM Console invoke API extraction before parser/OCR fallback.
 
 ## Local Test Result
 
@@ -142,3 +143,4 @@ Pending decisions:
 - Confirm whether output columns `Long TEN` and `DIR` should both receive tensile direction, or whether one of them should carry a different value.
 - Confirm where the HTTP agent will run so Power Automate can reach it.
 - Confirm/install Tesseract OCR on the machine/server where the agent will run.
+- Configure `LLM_API_BASE_URL` and `LLM_API_KEY` on Cloud Run if LLM extraction should be enabled.

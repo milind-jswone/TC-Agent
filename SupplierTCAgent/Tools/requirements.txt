@@ -7,4 +7,5 @@ pypdfium2
 pytesseract
 python-multipart
 python-dotenv
+requests
 uvicorn
