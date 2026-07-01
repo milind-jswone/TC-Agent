@@ -5,5 +5,6 @@ pdfplumber
 pillow
 pypdfium2
 pytesseract
+python-multipart
 python-dotenv
 uvicorn
