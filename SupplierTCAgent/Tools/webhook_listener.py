@@ -9,7 +9,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from generate_tc_output import process_supplier_tc
+from generate_tc_output import available_tc_formats, process_supplier_tc
 
 
 app = FastAPI(title="Supplier TC Agent")
@@ -43,6 +43,11 @@ def _process_pdf(path: Path, tc_format: str = "auto", master_path: Path | None =
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/tc/formats")
+def tc_formats() -> dict[str, Any]:
+    return {"formats": available_tc_formats()}
 
 
 @app.post("/tc/process")

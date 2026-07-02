@@ -10,7 +10,7 @@ The structure follows the same maintainable pattern as the Contract & SO agent p
 
 - Accept supplier TC files from a Teams channel upload.
 - Use the supplier TC format that will be provided next as the source format.
-- Generate the final TC output in the specific Excel template that will be provided next.
+- Generate the final TC output in the selected Excel format from the maintained multi-format template workbook.
 - Save extracted data into a master Excel file using Power Automate.
 - Maintain local logs, error records, and memory for future improvements.
 
@@ -33,6 +33,7 @@ SupplierTCAgent/
     powerautomate_handoff.md
   Templates/
     README.md
+    tc_formats.xlsx
   Samples/
     README.md
   Output/
@@ -44,7 +45,7 @@ SupplierTCAgent/
 1. A supplier TC file is uploaded to the configured Teams channel.
 2. Power Automate detects the upload and passes file metadata/content to the TC Agent workflow.
 3. The agent extracts required fields from the supplier TC.
-4. The extracted values are mapped into the required output Excel template.
+4. The extracted values are mapped into the selected sheet from `Templates/tc_formats.xlsx`.
 5. The output TC Excel file is generated and saved.
 6. The complete extracted dataset is appended or updated in the master Excel file through Power Automate.
 7. The run result, warnings, and errors are recorded in `Logs/`.
@@ -74,16 +75,30 @@ When the sample is provided, document:
 
 ## Excel Output Mapping
 
-Pending output template.
+The active multi-format template file is:
 
-When the template is provided, document:
+```text
+SupplierTCAgent/Templates/tc_formats.xlsx
+```
 
-- Template file name.
-- Sheet names.
-- Cell/range mapping.
-- Required formatting rules.
-- Formula cells that must not be overwritten.
-- Output file naming convention.
+Supported output format choices:
+
+- `P&T IS 3601` -> `p_t_is_3601`
+- `P&T IS 1161` -> `p_t_is_1161`
+- `P&T IS 4923` -> `p_t_is_4923`
+- `One Helix Coil` -> `one_helix_coil`
+- `One Helix Sheet bundle` -> `one_helix_sheet_bundle`
+- `One Helix Sheet` -> `one_helix_sheet`
+- `Fe 550` -> `fe_550`
+- `Fe 550D` -> `fe_550d`
+
+Power Automate should send the selected value as `tc_format`.
+
+Output naming convention:
+
+```text
+<input_file_name>_output_<YYYYMMDD_HHMMSS_IST>.xlsx
+```
 
 ## Master Excel Handoff
 
@@ -125,6 +140,13 @@ Pending decisions:
 - Created a local master Excel workbook with one row per extracted coil.
 - Added OCR-ready support for scanned PDFs and image uploads.
 - Added optional JSW One LLM Console invoke API extraction before parser/OCR fallback.
+
+### 2026-07-02
+
+- Added `Templates/tc_formats.xlsx` as the maintained multi-format output template workbook.
+- Replaced generic `format_1`, `format_2`, etc. with real format names and stable values.
+- Added selected-sheet output generation while preserving master Excel update.
+- Added `/tc/formats` endpoint to list available format choices.
 
 ## Local Test Result
 

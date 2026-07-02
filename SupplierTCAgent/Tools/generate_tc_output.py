@@ -18,12 +18,23 @@ from tc_parser import TCRecord, parse_supplier_tc
 
 AGENT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TEMPLATE = AGENT_ROOT / "Templates" / "tc_output__template.xlsx"
+DEFAULT_FORMATS_TEMPLATE = AGENT_ROOT / "Templates" / "tc_formats.xlsx"
 DEFAULT_OUTPUT_DIR = AGENT_ROOT / "Output"
 DEFAULT_MASTER = AGENT_ROOT / "Master" / "supplier_tc_master.xlsx"
 
 MAX_TEMPLATE_ROWS = 9
 FIRST_ITEM_ROW = 15
 IST = timezone(timedelta(hours=5, minutes=30), name="IST")
+TC_FORMAT_SHEETS = [
+    "P&T IS 3601",
+    "P&T IS 1161",
+    "P&T IS 4923",
+    "One Helix Coil",
+    "One Helix Sheet bundle",
+    "One Helix Sheet",
+    "Fe 550",
+    "Fe 550D",
+]
 MASTER_TC_HEADERS = [
     "tc_unique_id", "source_file_name", "source_file_path", "extraction_timestamp", "extraction_model",
     "document_type", "certificate_type", "test_certificate_number", "certificate_date", "document_page_number",
@@ -76,6 +87,29 @@ MASTER_TC_HEADERS = [
 def _safe_name(value: str) -> str:
     safe = "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in value.strip())
     return safe.strip("_") or "supplier_tc"
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
+
+
+def available_tc_formats() -> list[dict[str, str]]:
+    return [{"title": name, "value": _slug(name)} for name in TC_FORMAT_SHEETS]
+
+
+def _resolve_format_sheet(tc_format: str) -> str:
+    value = (tc_format or "").strip()
+    if not value or value.lower() == "auto":
+        return "One Helix Coil"
+    old_match = re.fullmatch(r"format_(\d+)", value.lower())
+    if old_match:
+        index = int(old_match.group(1)) - 1
+        if 0 <= index < len(TC_FORMAT_SHEETS):
+            return TC_FORMAT_SHEETS[index]
+    for sheet_name in TC_FORMAT_SHEETS:
+        if value.lower() == sheet_name.lower() or _slug(value) == _slug(sheet_name):
+            return sheet_name
+    raise ValueError(f"Unknown TC output format: {tc_format}. Supported formats: {', '.join(TC_FORMAT_SHEETS)}")
 
 
 def _now_ist() -> datetime:
@@ -152,6 +186,207 @@ def _fill_output_template(record: TCRecord, template_path: Path, output_path: Pa
     _set(ws, "E29", record.invoice_no)
 
     wb.save(output_path)
+
+
+def _copy_selected_format_sheet(template_path: Path, sheet_name: str, output_path: Path) -> Any:
+    shutil.copy2(template_path, output_path)
+    wb = openpyxl.load_workbook(output_path)
+    actual_sheet_name = next((name for name in wb.sheetnames if _slug(name) == _slug(sheet_name)), None)
+    if actual_sheet_name is None:
+        raise ValueError(f"Format sheet '{sheet_name}' was not found in {template_path.name}.")
+    for name in list(wb.sheetnames):
+        if name != actual_sheet_name:
+            del wb[name]
+    if actual_sheet_name != sheet_name:
+        wb[actual_sheet_name].title = sheet_name[:31]
+    return wb
+
+
+def _sheet_data_start(sheet_name: str) -> int:
+    if sheet_name.startswith("P&T"):
+        return 16
+    if sheet_name.startswith("Fe "):
+        return 17
+    return 15
+
+
+def _clear_format_rows(ws: Any, start_row: int, end_row: int = 25) -> None:
+    for row in range(start_row, min(end_row, ws.max_row) + 1):
+        for col in range(3, ws.max_column + 1):
+            if not isinstance(ws.cell(row, col), openpyxl.cell.cell.MergedCell):
+                ws.cell(row, col).value = None
+
+
+def _write_format_header(ws: Any, record: TCRecord) -> None:
+    _set(ws, "C6", f"Test Certificate: {record.test_certificate_no}".strip())
+    _set(ws, "C7", f"To M/S {record.customer_name_address}" if record.customer_name_address else "To M/S")
+    for row in range(1, min(ws.max_row, 35) + 1):
+        for col in range(1, ws.max_column + 1):
+            value = ws.cell(row, col).value
+            if not isinstance(value, str):
+                continue
+            replacement = value
+            replacements = {
+                "<Customer Name & Address>": record.customer_name_address,
+                "IS ******": record.specification or "IS ******",
+                "IS *****": record.specification or "IS *****",
+                "Specification  : IS ******": f"Specification  : {record.specification}" if record.specification else value,
+            }
+            for old, new in replacements.items():
+                if new:
+                    replacement = replacement.replace(old, str(new))
+            if replacement != value:
+                _set(ws, ws.cell(row, col).coordinate, replacement)
+
+
+def _format_item_values(record: TCRecord, item: Any, sheet_name: str, index: int) -> dict[str, Any]:
+    s_plus_p = None
+    if item.s is not None and item.p is not None:
+        s_plus_p = round(item.s + item.p, 6)
+    return {
+        "Grade": record.grade,
+        "Surface Type": "",
+        "Form": record.product,
+        "Nominal Size": item.nominal_size,
+        "Length": item.length_mm,
+        "Batch No.": item.batch_no,
+        "Heat No.": item.batch_no,
+        "Date of Inspection": record.date,
+        "No. of Bundles": item.pcs,
+        "No. of Sheets": item.pcs,
+        "No. of Sheets/Bundle": item.pcs,
+        "Net Weight": item.net_weight_mt,
+        "RM TC Reference No.": record.test_certificate_no,
+        "Coil No.": item.coil_no,
+        "Bundle No.": item.coil_no,
+        "Width": item.width_mm,
+        "Thickness": item.thickness_mm,
+        "C": item.c,
+        "S": item.s,
+        "P": item.p,
+        "S+P": s_plus_p,
+        "Mn": item.raw_data.get("manganese_percent") if item.raw_data else "",
+        "Si": item.si,
+        "Al": item.al,
+        "N": item.n,
+        "Nb+V+Ti": item.nb_v_ti,
+        "CE": item.raw_data.get("carbon_equivalent_percent") if item.raw_data else "",
+        "YS": item.ys,
+        "UTS": item.uts,
+        "E": item.elongation,
+        "Long TEN": item.tensile_direction,
+        "DIR": item.tensile_direction,
+        "GL": item.gl,
+        "UTS/YS": item.ys_uts_ratio,
+        "Bend": item.bend_result or "PASS",
+        "Rebend": item.bend_result or "PASS",
+        "Bend Test": item.bend_result or "PASS",
+        "Bend Direction": item.bend_direction,
+        "Bend Radius": item.bend_radius,
+        "Bend Result": item.bend_result,
+    }
+
+
+def _normalized_header(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").replace("\n", " ")).strip()
+
+
+def _format_column_map(ws: Any, sheet_name: str) -> dict[int, str]:
+    header_rows = range(12, 17) if sheet_name.startswith("Fe ") else range(12, 15)
+    ignored_labels = {
+        "%",
+        "MT",
+        "mm",
+        "N/mm²",
+        "N/ mm²",
+        "Kg/m",
+        "gm/mm²",
+        "Ratio",
+        "Test",
+        "Min",
+        "Max",
+        "PASS",
+        "OK",
+        "Satisfactory",
+        "2T",
+        "-",
+    }
+    section_labels = {
+        "DIMENSIONAL PROPERTIES",
+        "CHEMICAL PROPERTIE",
+        "CHEMICAL PROPERTIES",
+        "MECHANICAL PROPERTIES",
+    }
+    mapping: dict[int, str] = {}
+    for col in range(3, ws.max_column + 1):
+        parts = [_normalized_header(ws.cell(row, col).value) for row in header_rows]
+        parts = [part for part in parts if part]
+        if not parts:
+            continue
+        candidates = [
+            part
+            for part in parts
+            if part not in ignored_labels and part.upper() not in section_labels and not isinstance(part, (int, float))
+        ]
+        label = candidates[-1] if candidates else parts[-1]
+        if "Nominal Size" in " ".join(parts):
+            label = "Nominal Size"
+        elif "Net Weight" in " ".join(parts):
+            label = "Net Weight"
+        elif "No. of Bundles" in " ".join(parts):
+            label = "No. of Bundles"
+        elif "No. of Sheets/Bundle" in " ".join(parts):
+            label = "No. of Sheets/Bundle"
+        elif "No. of Sheets" in " ".join(parts):
+            label = "No. of Sheets"
+        mapping[col] = label.strip()
+    return mapping
+
+
+def _write_total_and_footer(ws: Any, record: TCRecord) -> None:
+    total_weight = record.total_weight_mt or sum(item.net_weight_mt for item in record.line_items)
+    total_count = record.total_coils_packets or len(record.line_items)
+    for row in range(20, min(ws.max_row, 35) + 1):
+        for col in range(3, ws.max_column + 1):
+            value = ws.cell(row, col).value
+            text = _normalized_header(value)
+            if "Total Qty" in text:
+                _set(ws, ws.cell(row, min(col + 1, ws.max_column)).coordinate, total_weight)
+            if "No. of Bundles" in text:
+                _set(ws, ws.cell(row, min(col + 1, ws.max_column)).coordinate, total_count)
+            if isinstance(value, str) and "Vehicle Number:" in value:
+                _set(
+                    ws,
+                    ws.cell(row, col).coordinate,
+                    f"Vehicle Number: {record.vehicle_no}\nInvoice Number: {record.invoice_no}",
+                )
+
+
+def _fill_selected_format_template(record: TCRecord, template_path: Path, output_path: Path, tc_format: str) -> str:
+    sheet_name = _resolve_format_sheet(tc_format)
+    if len(record.line_items) > MAX_TEMPLATE_ROWS:
+        raise ValueError(
+            f"Template has {MAX_TEMPLATE_ROWS} item rows, but {len(record.line_items)} line items were extracted."
+        )
+    wb = _copy_selected_format_sheet(template_path, sheet_name, output_path)
+    ws = wb[sheet_name]
+    _write_format_header(ws, record)
+    start_row = _sheet_data_start(sheet_name)
+    _clear_format_rows(ws, start_row)
+    column_map = _format_column_map(ws, sheet_name)
+    for index, item in enumerate(record.line_items, start=1):
+        row = start_row + index - 1
+        values = _format_item_values(record, item, sheet_name, index)
+        for col, label in column_map.items():
+            normalized_label = label.strip()
+            value = values.get(normalized_label)
+            if value is None:
+                value = ""
+            if value != "":
+                _set(ws, ws.cell(row, col).coordinate, value)
+    _write_total_and_footer(ws, record)
+    wb.save(output_path)
+    return sheet_name
 
 
 def _master_headers() -> list[str]:
@@ -337,7 +572,7 @@ def _append_master(record: TCRecord, master_path: Path) -> None:
 
 def process_supplier_tc(
     input_path: str | Path,
-    template_path: str | Path = DEFAULT_TEMPLATE,
+    template_path: str | Path = DEFAULT_FORMATS_TEMPLATE,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     master_path: str | Path = DEFAULT_MASTER,
     include_file_content: bool = False,
@@ -355,7 +590,7 @@ def process_supplier_tc(
     output_path = output_dir / output_name
     json_path = output_dir / f"{output_path.stem}.json"
 
-    _fill_output_template(record, template_path, output_path)
+    selected_format = _fill_selected_format_template(record, template_path, output_path, tc_format)
     _append_master(record, master_path)
     json_path.write_text(json.dumps(record.to_dict(), indent=2), encoding="utf-8")
 
@@ -368,6 +603,7 @@ def process_supplier_tc(
         "json_file": str(json_path),
         "line_items": len(record.line_items),
         "tc_format": tc_format,
+        "selected_format": selected_format,
         "extracted_data": record.to_dict(),
         "warnings": record.warnings,
     }
