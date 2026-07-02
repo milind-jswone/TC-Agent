@@ -28,6 +28,18 @@ Power Automate can call either endpoint:
 - `POST /tc/process` with multipart field `file`
 - `POST /tc/process-base64` with JSON body containing `file_name`, `file_content_base64`, and optional `tc_format`
 
+To let the agent update the production master workbook, also send the current SharePoint master file:
+
+```json
+{
+  "file_name": "Supplier TC.pdf",
+  "file_content_base64": "<uploaded TC file base64>",
+  "tc_format": "format_1",
+  "master_file_name": "Master TC.xlsx",
+  "master_file_base64": "<current master workbook base64>"
+}
+```
+
 For a cloud flow, the endpoint must be reachable by Power Automate. That means the agent needs to run on a hosted service, an internal gateway, or a tunnel during testing.
 
 OCR requirements for scanned PDFs and image files:
@@ -46,6 +58,8 @@ OCR requirements for scanned PDFs and image files:
   "output_file": "",
   "output_file_base64": "",
   "master_file": "",
+  "master_file_name": "Master TC.xlsx",
+  "master_file_base64": "",
   "json_file": "",
   "line_items": 5,
   "tc_format": "auto",
@@ -81,7 +95,7 @@ Recommended behavior:
 3. Get attachment content.
 4. Call the agent endpoint `/tc/process-base64`.
 5. Save `output_file_base64` as `output_file_name` to the target Teams/SharePoint location.
-6. Append `extracted_data.line_items` to the production master Excel table.
+6. Save `master_file_base64` back over the production master workbook.
 7. Reply in the Teams thread with success/failure and output file link.
 
 ## LLM Playground Integration

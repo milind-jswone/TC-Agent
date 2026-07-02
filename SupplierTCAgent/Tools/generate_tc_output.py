@@ -142,6 +142,12 @@ def _append_master(record: TCRecord, master_path: Path) -> None:
     if master_path.exists():
         wb = openpyxl.load_workbook(master_path)
         ws = wb.active
+        current_headers = [ws.cell(row=1, column=index).value for index in range(1, len(headers) + 1)]
+        if current_headers != headers:
+            if "MasterData" in wb.sheetnames:
+                del wb["MasterData"]
+            ws = wb.create_sheet("MasterData", 0)
+            ws.append(headers)
     else:
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -222,6 +228,7 @@ def process_supplier_tc(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     master_path: str | Path = DEFAULT_MASTER,
     include_file_content: bool = False,
+    include_master_file_content: bool = False,
     tc_format: str = "auto",
 ) -> dict[str, Any]:
     input_path = Path(input_path)
@@ -253,6 +260,9 @@ def process_supplier_tc(
     }
     if include_file_content:
         result["output_file_base64"] = base64.b64encode(output_path.read_bytes()).decode("ascii")
+    if include_master_file_content:
+        result["master_file_name"] = master_path.name
+        result["master_file_base64"] = base64.b64encode(master_path.read_bytes()).decode("ascii")
     return result
 
 

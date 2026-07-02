@@ -20,11 +20,22 @@ class TCProcessRequest(BaseModel):
     file_name: str
     file_content_base64: str
     tc_format: str = "auto"
+    master_file_name: str | None = None
+    master_file_base64: str | None = None
 
 
-def _process_pdf(path: Path, tc_format: str = "auto") -> dict[str, Any]:
+def _process_pdf(path: Path, tc_format: str = "auto", master_path: Path | None = None) -> dict[str, Any]:
     try:
-        return process_supplier_tc(path, include_file_content=True, tc_format=tc_format)
+        kwargs: dict[str, Any] = {}
+        if master_path is not None:
+            kwargs["master_path"] = master_path
+        return process_supplier_tc(
+            path,
+            **kwargs,
+            include_file_content=True,
+            include_master_file_content=master_path is not None,
+            tc_format=tc_format,
+        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -55,5 +66,15 @@ def process_tc_base64(request: TCProcessRequest) -> JSONResponse:
             pdf_path.write_bytes(base64.b64decode(request.file_content_base64))
         except Exception as exc:
             raise HTTPException(status_code=400, detail="Invalid base64 PDF content.") from exc
-        result = _process_pdf(pdf_path, tc_format=request.tc_format)
+        master_path = None
+        if request.master_file_base64:
+            master_name = request.master_file_name or "Master TC.xlsx"
+            if Path(master_name).suffix.lower() != ".xlsx":
+                raise HTTPException(status_code=400, detail="Master file must be an .xlsx workbook.")
+            master_path = Path(tmpdir) / master_name
+            try:
+                master_path.write_bytes(base64.b64decode(request.master_file_base64))
+            except Exception as exc:
+                raise HTTPException(status_code=400, detail="Invalid base64 master workbook content.") from exc
+        result = _process_pdf(pdf_path, tc_format=request.tc_format, master_path=master_path)
     return JSONResponse(result)
