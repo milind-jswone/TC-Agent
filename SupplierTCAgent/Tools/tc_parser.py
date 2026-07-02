@@ -41,6 +41,7 @@ class TCLineItem:
     bend_direction: str = ""
     bend_radius: str = ""
     bend_result: str = ""
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -61,6 +62,7 @@ class TCRecord:
     total_coils_packets: int | None = None
     line_items: list[TCLineItem] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    raw_data: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -118,6 +120,7 @@ def _parse_size(size: str) -> tuple[float | None, float | None, float | None]:
 
 def _record_from_llm_payload(path: Path, payload: dict[str, Any]) -> TCRecord:
     record = TCRecord(source_file=path.name)
+    record.raw_data = payload
     record.test_certificate_no = _to_text(_first_value(payload, "test_certificate_no", "test_certificate_number"))
     record.date = _to_text(_first_value(payload, "date", "certificate_date"))
     record.product = _to_text(_first_value(payload, "product", "product_name"))
@@ -178,6 +181,7 @@ def _record_from_llm_payload(path: Path, payload: dict[str, Any]) -> TCRecord:
             bend_direction=_to_text(_first_value(raw_item, "bend_direction", "bend_test_direction")),
             bend_radius=_to_text(_first_value(raw_item, "bend_radius", "bend_diameter")),
             bend_result=_to_text(_first_value(raw_item, "bend_result", "bend_test_result")),
+            raw_data=raw_item,
         )
         if item.nb_v_ti is None:
             parts = [value for value in (item.nb, item.v, item.ti) if value is not None]

@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import shutil
 import base64
+import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import openpyxl
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from tc_parser import TCRecord, parse_supplier_tc
@@ -20,6 +23,53 @@ DEFAULT_MASTER = AGENT_ROOT / "Master" / "supplier_tc_master.xlsx"
 
 MAX_TEMPLATE_ROWS = 9
 FIRST_ITEM_ROW = 15
+MASTER_TC_HEADERS = [
+    "tc_unique_id", "source_file_name", "source_file_path", "extraction_timestamp", "extraction_model",
+    "document_type", "certificate_type", "test_certificate_number", "certificate_date", "document_page_number",
+    "total_pages", "document_template_code", "certification_type", "standard_name", "grade", "specification",
+    "manufacturer_name", "manufacturing_plant", "plant_location", "district", "state", "country",
+    "registered_office", "cin_number", "bis_license_number", "authorized_signatory", "signatory_designation",
+    "customer_name", "consignee_name", "consignee_address", "customer_location", "sales_order_number",
+    "sales_order_date", "billing_document_number", "invoice_number", "mode_of_transport", "vehicle_number",
+    "conforms_to_standard", "conforms_to_is2062", "conforms_to_en10204_type31", "conforms_to_rohs",
+    "radioactive_content_compliance", "dimensional_tolerance_compliance", "overall_material_conformance",
+    "product_name", "product_category", "material_type", "material_grade", "specification_grade", "steel_type",
+    "killing_practice", "manufacturing_process_route", "process_bof", "process_ars", "process_lhf",
+    "process_ccm", "process_rh", "process_hsm", "chemical_spec_c_min", "chemical_spec_c_max",
+    "chemical_spec_mn_min", "chemical_spec_mn_max", "chemical_spec_s_min", "chemical_spec_s_max",
+    "chemical_spec_p_min", "chemical_spec_p_max", "chemical_spec_si_min", "chemical_spec_si_max",
+    "chemical_spec_al_min", "chemical_spec_al_max", "chemical_spec_n_min", "chemical_spec_n_max",
+    "chemical_spec_b_min", "chemical_spec_b_max", "chemical_spec_nb_min", "chemical_spec_nb_max",
+    "chemical_spec_v_min", "chemical_spec_v_max", "chemical_spec_ti_min", "chemical_spec_ti_max",
+    "chemical_spec_cr_min", "chemical_spec_cr_max", "chemical_spec_mo_min", "chemical_spec_mo_max",
+    "chemical_spec_ni_min", "chemical_spec_ni_max", "chemical_spec_cu_min", "chemical_spec_cu_max",
+    "chemical_spec_mae_min", "chemical_spec_mae_max", "chemical_spec_carbon_equivalent_min",
+    "chemical_spec_carbon_equivalent_max", "tensile_test_direction_requirement",
+    "yield_strength_min_requirement", "yield_strength_max_requirement",
+    "ultimate_tensile_strength_min_requirement", "ultimate_tensile_strength_max_requirement",
+    "gauge_length_requirement", "elongation_min_requirement", "elongation_max_requirement",
+    "yield_to_tensile_ratio_requirement", "bend_test_direction_requirement", "bend_diameter_requirement",
+    "bend_test_requirement", "cvn_impact_requirement", "hardness_requirement", "grain_size_requirement",
+    "inclusion_rating_requirement", "hole_expansion_ratio_requirement", "erichsen_cupping_requirement",
+    "strain_age_embrittlement_requirement", "total_packets", "total_coils", "total_batches", "total_pieces",
+    "total_weight_mt", "heat_count", "unique_cast_count", "chemical_composition_pass",
+    "mechanical_properties_pass", "bend_test_pass", "dimensional_compliance_pass", "overall_pass_fail",
+    "radioactive_compliance_statement", "rohs_compliance_statement", "dimensions_and_tolerance_statement",
+    "certification_statement", "remarks", "thickness_unit", "width_unit", "length_unit", "weight_unit",
+    "chemistry_unit", "nitrogen_unit", "boron_unit", "yield_strength_unit", "tensile_strength_unit",
+    "elongation_unit", "hardness_unit", "impact_energy_unit", "batch_row_number", "cast_number",
+    "heat_number", "coil_number", "packet_number", "batch_identifier", "lot_number", "thickness",
+    "width", "length", "nominal_size", "pieces_count", "quantity_mt", "carbon_percent", "manganese_percent",
+    "sulphur_percent", "phosphorus_percent", "silicon_percent", "aluminium_percent", "nitrogen_ppm",
+    "boron_ppm", "niobium_percent", "vanadium_percent", "titanium_percent", "chromium_percent",
+    "molybdenum_percent", "nickel_percent", "copper_percent", "micro_alloying_elements_percent",
+    "carbon_equivalent_percent", "tensile_test_direction", "yield_strength_mpa",
+    "ultimate_tensile_strength_mpa", "gauge_length", "elongation_percent", "yield_to_tensile_ratio",
+    "bend_test_direction", "bend_diameter", "bend_test_result", "cvn_impact_direction",
+    "cvn_impact_temperature_c", "cvn_impact_average_energy_j", "hardness_hv10", "hardness_hrb",
+    "grain_size", "inclusion_rating", "hole_expansion_ratio", "erichsen_cupping_value",
+    "strain_age_embrittlement_test",
+]
 
 
 def _safe_name(value: str) -> str:
@@ -95,45 +145,151 @@ def _fill_output_template(record: TCRecord, template_path: Path, output_path: Pa
 
 
 def _master_headers() -> list[str]:
-    return [
-        "processed_at",
-        "source_file",
-        "test_certificate_no",
-        "date",
-        "customer_name_address",
-        "so_no",
-        "so_date",
-        "product",
-        "specification",
-        "grade",
-        "billing_doc_no",
-        "invoice_no",
-        "vehicle_no",
-        "batch_no",
-        "coil_no",
-        "nominal_size",
-        "pcs",
-        "net_weight_mt",
-        "width_mm",
-        "thickness_mm",
-        "c",
-        "s",
-        "p",
-        "si",
-        "al",
-        "n",
-        "nb_v_ti",
-        "tensile_direction",
-        "ys",
-        "uts",
-        "gl",
-        "elongation",
-        "ys_uts_ratio",
-        "bend_direction",
-        "bend_radius",
-        "bend_result",
-        "record_key",
-    ]
+    return MASTER_TC_HEADERS
+
+
+def _first_present(*values: Any) -> Any:
+    for value in values:
+        if value is not None and value != "":
+            return value
+    return ""
+
+
+def _payload_value(payload: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in payload and payload[key] not in (None, ""):
+            return payload[key]
+    return ""
+
+
+def _next_tc_unique_id(ws: Any) -> str:
+    max_id = 0
+    for row in range(2, ws.max_row + 1):
+        value = ws.cell(row=row, column=1).value
+        match = re.fullmatch(r"TC_(\d+)", str(value or "").strip(), flags=re.IGNORECASE)
+        if match:
+            max_id = max(max_id, int(match.group(1)))
+    return f"TC_{max_id + 1:03d}"
+
+
+def _find_or_reset_master_sheet(wb: Any) -> Any:
+    for ws in wb.worksheets:
+        headers = [ws.cell(row=1, column=index).value for index in range(1, len(MASTER_TC_HEADERS) + 1)]
+        if headers == MASTER_TC_HEADERS:
+            return ws
+
+    for ws in wb.worksheets:
+        if ws.cell(row=1, column=1).value == "tc_unique_id":
+            for index, header in enumerate(MASTER_TC_HEADERS, start=1):
+                ws.cell(row=1, column=index).value = header
+            return ws
+
+    while wb.worksheets:
+        wb.remove(wb.worksheets[0])
+    ws = wb.create_sheet("TC Data")
+    ws.append(MASTER_TC_HEADERS)
+    return ws
+
+
+def _record_common_values(record: TCRecord, processed_at: str) -> dict[str, Any]:
+    raw = record.raw_data or {}
+    customer_address = record.customer_name_address
+    return {
+        "source_file_name": record.source_file,
+        "source_file_path": record.source_file,
+        "extraction_timestamp": processed_at,
+        "extraction_model": os.getenv("LLM_MODEL", "gemini-2.5-flash"),
+        "document_type": _payload_value(raw, "document_type") or "TEST CERTIFICATE",
+        "certificate_type": _payload_value(raw, "certificate_type") or "Test Certificate",
+        "test_certificate_number": record.test_certificate_no,
+        "certificate_date": record.date,
+        "grade": record.grade,
+        "specification": record.specification,
+        "customer_name": _payload_value(raw, "customer_name", "consignee_name") or customer_address,
+        "consignee_name": _payload_value(raw, "consignee_name", "customer_name") or customer_address,
+        "consignee_address": _payload_value(raw, "consignee_address", "customer_location") or customer_address,
+        "customer_location": _payload_value(raw, "customer_location", "consignee_address") or customer_address,
+        "sales_order_number": record.so_no,
+        "sales_order_date": record.so_date,
+        "billing_document_number": record.billing_doc_no,
+        "invoice_number": record.invoice_no,
+        "vehicle_number": record.vehicle_no,
+        "product_name": record.product,
+        "product_category": record.product,
+        "material_grade": record.grade,
+        "specification_grade": record.specification,
+        "standard_name": _payload_value(raw, "standard_name") or (record.specification.split()[0] if record.specification else ""),
+        "total_packets": record.total_coils_packets,
+        "total_coils": record.total_coils_packets,
+        "total_batches": record.total_coils_packets,
+        "total_weight_mt": record.total_weight_mt,
+        "thickness_unit": "mm",
+        "width_unit": "mm",
+        "length_unit": "mm",
+        "weight_unit": "MT",
+        "chemistry_unit": "%",
+        "nitrogen_unit": "ppm",
+        "boron_unit": "ppm",
+        "yield_strength_unit": "MPa",
+        "tensile_strength_unit": "MPa",
+        "elongation_unit": "%",
+    }
+
+
+def _line_item_values(item: Any, row_number: int) -> dict[str, Any]:
+    raw = item.raw_data or {}
+    return {
+        "batch_row_number": row_number,
+        "cast_number": _payload_value(raw, "cast_number") or item.batch_no,
+        "heat_number": _payload_value(raw, "heat_number") or item.batch_no,
+        "coil_number": _payload_value(raw, "coil_number") or item.coil_no,
+        "packet_number": _payload_value(raw, "packet_number") or item.coil_no,
+        "batch_identifier": _payload_value(raw, "batch_identifier") or item.batch_no,
+        "thickness": _payload_value(raw, "thickness") or item.thickness_mm,
+        "width": _payload_value(raw, "width") or item.width_mm,
+        "length": _payload_value(raw, "length") or item.length_mm,
+        "nominal_size": item.nominal_size,
+        "pieces_count": _payload_value(raw, "pieces_count") or item.pcs,
+        "quantity_mt": _payload_value(raw, "quantity_mt") or item.net_weight_mt,
+        "carbon_percent": _payload_value(raw, "carbon_percent") or item.c,
+        "sulphur_percent": _payload_value(raw, "sulphur_percent") or item.s,
+        "phosphorus_percent": _payload_value(raw, "phosphorus_percent") or item.p,
+        "silicon_percent": _payload_value(raw, "silicon_percent") or item.si,
+        "aluminium_percent": _payload_value(raw, "aluminium_percent") or item.al,
+        "nitrogen_ppm": _payload_value(raw, "nitrogen_ppm") or item.n,
+        "niobium_percent": _payload_value(raw, "niobium_percent") or item.nb,
+        "vanadium_percent": _payload_value(raw, "vanadium_percent") or item.v,
+        "titanium_percent": _payload_value(raw, "titanium_percent") or item.ti,
+        "micro_alloying_elements_percent": _payload_value(raw, "micro_alloying_elements_percent") or item.nb_v_ti,
+        "tensile_test_direction": _payload_value(raw, "tensile_test_direction") or item.tensile_direction,
+        "yield_strength_mpa": _payload_value(raw, "yield_strength_mpa") or item.ys,
+        "ultimate_tensile_strength_mpa": _payload_value(raw, "ultimate_tensile_strength_mpa") or item.uts,
+        "gauge_length": _payload_value(raw, "gauge_length") or item.gl,
+        "elongation_percent": _payload_value(raw, "elongation_percent") or item.elongation,
+        "yield_to_tensile_ratio": _payload_value(raw, "yield_to_tensile_ratio") or item.ys_uts_ratio,
+        "bend_test_direction": _payload_value(raw, "bend_test_direction") or item.bend_direction,
+        "bend_diameter": _payload_value(raw, "bend_diameter") or item.bend_radius,
+        "bend_test_result": _payload_value(raw, "bend_test_result") or item.bend_result,
+    }
+
+
+def _master_row(record: TCRecord, item: Any, tc_unique_id: str, processed_at: str, row_number: int) -> list[Any]:
+    raw = record.raw_data or {}
+    item_raw = item.raw_data or {}
+    common = _record_common_values(record, processed_at)
+    item_values = _line_item_values(item, row_number)
+    row = []
+    for header in MASTER_TC_HEADERS:
+        row.append(
+            _first_present(
+                tc_unique_id if header == "tc_unique_id" else "",
+                item_raw.get(header),
+                raw.get(header),
+                item_values.get(header),
+                common.get(header),
+            )
+        )
+    return row
 
 
 def _append_master(record: TCRecord, master_path: Path) -> None:
@@ -141,79 +297,26 @@ def _append_master(record: TCRecord, master_path: Path) -> None:
     headers = _master_headers()
     if master_path.exists():
         wb = openpyxl.load_workbook(master_path)
-        ws = wb.active
-        current_headers = [ws.cell(row=1, column=index).value for index in range(1, len(headers) + 1)]
-        if current_headers != headers:
-            if "MasterData" in wb.sheetnames:
-                del wb["MasterData"]
-            ws = wb.create_sheet("MasterData", 0)
-            ws.append(headers)
+        ws = _find_or_reset_master_sheet(wb)
     else:
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "MasterData"
+        ws.title = "TC Data"
         ws.append(headers)
 
-    existing = {
-        ws.cell(row=row, column=len(headers)).value
-        for row in range(2, ws.max_row + 1)
-        if ws.cell(row=row, column=len(headers)).value
-    }
-    processed_at = datetime.now().isoformat(timespec="seconds")
-    for item in record.line_items:
-        record_key = f"{record.test_certificate_no}|{item.coil_no}"
-        if record_key in existing:
-            continue
-        ws.append(
-            [
-                processed_at,
-                record.source_file,
-                record.test_certificate_no,
-                record.date,
-                record.customer_name_address,
-                record.so_no,
-                record.so_date,
-                record.product,
-                record.specification,
-                record.grade,
-                record.billing_doc_no,
-                record.invoice_no,
-                record.vehicle_no,
-                item.batch_no,
-                item.coil_no,
-                item.nominal_size,
-                item.pcs,
-                item.net_weight_mt,
-                item.width_mm,
-                item.thickness_mm,
-                item.c,
-                item.s,
-                item.p,
-                item.si,
-                item.al,
-                item.n,
-                item.nb_v_ti,
-                item.tensile_direction,
-                item.ys,
-                item.uts,
-                item.gl,
-                item.elongation,
-                item.ys_uts_ratio,
-                item.bend_direction,
-                item.bend_radius,
-                item.bend_result,
-                record_key,
-            ]
-        )
+    processed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    tc_unique_id = _next_tc_unique_id(ws)
+    for row_number, item in enumerate(record.line_items, start=1):
+        ws.append(_master_row(record, item, tc_unique_id, processed_at, row_number))
 
     if "SupplierTCMaster" not in ws.tables and ws.max_row > 1:
-        table_ref = f"A1:AK{ws.max_row}"
+        table_ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
         table = Table(displayName="SupplierTCMaster", ref=table_ref)
         style = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True, showColumnStripes=False)
         table.tableStyleInfo = style
         ws.add_table(table)
     elif "SupplierTCMaster" in ws.tables:
-        ws.tables["SupplierTCMaster"].ref = f"A1:AK{ws.max_row}"
+        ws.tables["SupplierTCMaster"].ref = f"A1:{get_column_letter(len(headers))}{ws.max_row}"
 
     for column in ws.columns:
         letter = column[0].column_letter
