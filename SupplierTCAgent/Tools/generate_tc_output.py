@@ -122,7 +122,9 @@ def _output_name_for_input(input_path: Path) -> str:
 
 
 def _load_record(input_path: str | Path, tc_format: str = "auto") -> TCRecord:
-    return parse_supplier_tc(input_path, tc_format=tc_format)
+    # The selected format controls Excel layout only. Extraction must capture
+    # every TC line item regardless of which output template the user picked.
+    return parse_supplier_tc(input_path, tc_format="auto")
 
 
 def _set(ws: Any, cell: str, value: Any) -> None:

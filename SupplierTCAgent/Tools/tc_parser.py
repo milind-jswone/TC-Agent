@@ -386,10 +386,12 @@ def parse_supplier_tc(input_path: str | Path, tc_format: str = "auto", prefer_ll
     path = Path(input_path)
     if prefer_llm and is_llm_configured():
         try:
-            record = _record_from_llm_payload(path, invoke_document_extraction(path, tc_format=tc_format))
+            # Keep extraction format-neutral. The user's selected format only
+            # controls the output workbook layout after all TC rows are read.
+            record = _record_from_llm_payload(path, invoke_document_extraction(path, tc_format="auto"))
             if record.line_items:
                 try:
-                    return _enrich_record(record, parse_supplier_tc(path, tc_format=tc_format, prefer_llm=False))
+                    return _enrich_record(record, parse_supplier_tc(path, tc_format="auto", prefer_llm=False))
                 except Exception as exc:
                     if record.total_coils_packets is None:
                         record.total_coils_packets = len(record.line_items)

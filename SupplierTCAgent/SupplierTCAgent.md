@@ -9,7 +9,7 @@ The structure follows the same maintainable pattern as the Contract & SO agent p
 ## Current Scope
 
 - Accept supplier TC files from a Teams channel upload.
-- Use the supplier TC format that will be provided next as the source format.
+- Extract every supplier TC line item without filtering by selected output format.
 - Generate the final TC output in the selected Excel format from the maintained multi-format template workbook.
 - Save extracted data into a master Excel file using Power Automate.
 - Maintain local logs, error records, and memory for future improvements.
@@ -94,6 +94,8 @@ Supported output format choices:
 
 Power Automate should send the selected value as `tc_format`.
 
+Important: `tc_format` only selects the output Excel sheet. It must not be used as an extraction filter because one TC can contain multiple rows that still need to be captured in the master and output files.
+
 Output naming convention:
 
 ```text
@@ -147,6 +149,7 @@ Pending decisions:
 - Replaced generic `format_1`, `format_2`, etc. with real format names and stable values.
 - Added selected-sheet output generation while preserving master Excel update.
 - Added `/tc/formats` endpoint to list available format choices.
+- Fixed extraction so the selected output format no longer filters TC line items before Excel generation.
 
 ## Local Test Result
 

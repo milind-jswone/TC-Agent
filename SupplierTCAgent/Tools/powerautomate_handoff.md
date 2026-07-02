@@ -28,6 +28,8 @@ Power Automate can call either endpoint:
 - `POST /tc/process` with multipart field `file`
 - `POST /tc/process-base64` with JSON body containing `file_name`, `file_content_base64`, and optional `tc_format`
 
+`tc_format` is output-only. Send the user's selected workbook format here, but the backend extracts all TC rows first and only then applies the selected Excel layout.
+
 To let the agent update the production master workbook, also send the current SharePoint master file:
 
 ```json

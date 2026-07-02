@@ -75,3 +75,4 @@ Rows 15-23 are used for coil/item data.
 - Some target cells are merged. The generator writes to the top-left cell of merged ranges automatically.
 - The generator selects one sheet from `tc_formats.xlsx`, deletes the other sheets from the output workbook, and fills only the selected format.
 - Master file update is independent of the selected output format.
+- Extraction is also independent of the selected output format. The selected value controls workbook layout only and must not filter TC line items.

@@ -292,8 +292,8 @@ def invoke_document_extraction(path: str | Path, tc_format: str = "auto") -> dic
     timeout = int(os.getenv("LLM_TIMEOUT_SECONDS", "120"))
 
     prompt = LLM_PROMPT
-    if tc_format and tc_format != "auto":
-        prompt += f"\nSelected TC format: {tc_format}\n"
+    # Do not add the selected output format to the extraction prompt. Format
+    # selection is for the generated Excel layout, not for filtering TC rows.
 
     payload = {
         "model": model,
