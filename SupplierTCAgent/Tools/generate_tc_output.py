@@ -5,7 +5,7 @@ import shutil
 import base64
 import os
 import re
-from datetime import datetime
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +23,7 @@ DEFAULT_MASTER = AGENT_ROOT / "Master" / "supplier_tc_master.xlsx"
 
 MAX_TEMPLATE_ROWS = 9
 FIRST_ITEM_ROW = 15
+IST = timezone(timedelta(hours=5, minutes=30), name="IST")
 MASTER_TC_HEADERS = [
     "tc_unique_id", "source_file_name", "source_file_path", "extraction_timestamp", "extraction_model",
     "document_type", "certificate_type", "test_certificate_number", "certificate_date", "document_page_number",
@@ -77,8 +78,12 @@ def _safe_name(value: str) -> str:
     return safe.strip("_") or "supplier_tc"
 
 
+def _now_ist() -> datetime:
+    return datetime.now(UTC).astimezone(IST)
+
+
 def _output_name_for_input(input_path: Path) -> str:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = _now_ist().strftime("%Y%m%d_%H%M%S")
     return f"{_safe_name(input_path.stem)}_output_{timestamp}.xlsx"
 
 
@@ -309,7 +314,7 @@ def _append_master(record: TCRecord, master_path: Path) -> None:
         ws.title = "TC Data"
         ws.append(headers)
 
-    processed_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    processed_at = _now_ist().strftime("%Y-%m-%d %H:%M:%S IST")
     tc_unique_id = _next_tc_unique_id(ws)
     for row_number, item in enumerate(record.line_items, start=1):
         ws.append(_master_row(record, item, tc_unique_id, processed_at, row_number))
