@@ -77,6 +77,11 @@ def _safe_name(value: str) -> str:
     return safe.strip("_") or "supplier_tc"
 
 
+def _output_name_for_input(input_path: Path) -> str:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"{_safe_name(input_path.stem)}_output_{timestamp}.xlsx"
+
+
 def _load_record(input_path: str | Path, tc_format: str = "auto") -> TCRecord:
     return parse_supplier_tc(input_path, tc_format=tc_format)
 
@@ -341,7 +346,7 @@ def process_supplier_tc(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     record = _load_record(input_path, tc_format=tc_format)
-    output_name = f"TC_Output_{_safe_name(record.test_certificate_no or input_path.stem)}.xlsx"
+    output_name = _output_name_for_input(input_path)
     output_path = output_dir / output_name
     json_path = output_dir / f"{output_path.stem}.json"
 
