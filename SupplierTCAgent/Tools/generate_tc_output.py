@@ -586,6 +586,10 @@ def process_supplier_tc(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     record = _load_record(input_path, tc_format=tc_format)
+    if not record.line_items:
+        raise ValueError(
+            "No line items were extracted from the TC. The file may be unreadable, rotated, or unsupported by the current extraction prompt."
+        )
     output_name = _output_name_for_input(input_path)
     output_path = output_dir / output_name
     json_path = output_dir / f"{output_path.stem}.json"
